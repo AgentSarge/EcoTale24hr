@@ -1,0 +1,67 @@
+User Flow Diagram
+
+Primary Flow:
+Registration → Dashboard → (Investigate Metrics → Competitor Intel → Launch Campaign)
+                                ↓                              ↑
+                        Supply Chain Hub ← Compliance Reporting
+
+Flow Components:
+
+1. Entry Point
+   - Registration
+     * User invitation
+     * Account creation
+     * Initial setup
+
+2. Central Hub
+   - Dashboard
+     * Key metrics
+     * Quick actions
+     * Navigation options
+
+3. Analysis Loop
+   - Investigate Metrics
+     * Data exploration
+     * Trend analysis
+   - Competitor Intel
+     * Market insights
+     * Competitive analysis
+   - Launch Campaign
+     * Response creation
+     * Campaign deployment
+
+4. Support Processes
+   - Supply Chain Hub
+     * Logistics tracking
+     * Supplier management
+   - Compliance Reporting
+     * Report generation
+     * Regulatory compliance
+
+Flow Characteristics:
+- Circular workflow support
+- Multiple entry/exit points
+- Process loop optimization
+- Cross-functional integration
+- Data-driven decision support
+
+Technical Implementation:
+- Route management
+- State persistence
+- Progress tracking
+- Session handling
+- Navigation history
+
+Integration Requirements:
+- Authentication system
+- Analytics tracking
+- State management
+- Progress monitoring
+- Activity logging
+
+User Experience Considerations:
+- Clear navigation paths
+- Progress indicators
+- Breadcrumb trails
+- Status updates
+- Context preservation 

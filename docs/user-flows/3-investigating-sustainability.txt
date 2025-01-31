@@ -1,0 +1,49 @@
+3. Investigating a Sustainability Issue
+
+Objective: Enable users to analyze and investigate sustainability metrics and trends.
+
+Investigation Flow:
+1. User notices metric anomaly (e.g., drop in aluminum recycling rates)
+2. Navigation to Sustainability Analytics → Real-Time Metrics
+3. Apply Filters:
+   - Material: Aluminum
+   - Region: Midwest
+   - Timeframe: Last 30 days
+4. View Regional Heatmap
+5. Identify Issues (e.g., competitor's lightweight aluminum cans)
+6. Access Competitor Intelligence → Trend Alerts
+
+Technical Requirements:
+- Advanced filtering system
+- Interactive heatmap visualization
+- Real-time data analysis
+- Trend detection algorithms
+- Competitor product recognition
+
+UI Components:
+- Filter panel with multiple parameters
+- Interactive regional heatmap
+- Trend graphs and charts
+- Alert notification system
+- Data drill-down interface
+
+Analysis Tools:
+- Material composition analysis
+- Geographic distribution maps
+- Time-series trend analysis
+- Competitor product tracking
+- Anomaly detection system
+
+Data Visualization:
+- Heatmaps for regional analysis
+- Line charts for trends
+- Bar charts for comparisons
+- Pie charts for distribution
+- Custom visualization widgets
+
+Integration Points:
+- Analytics engine
+- Machine learning models
+- Geographic information system
+- Real-time data streams
+- Alert management system 

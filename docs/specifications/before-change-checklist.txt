@@ -1,0 +1,77 @@
+Before Change Checklist
+
+Required Reading Before Any File Changes
+======================================
+
+1. Core Documentation Review
+   - README.md
+     Purpose: Understand project overview, structure, and current requirements
+     Key Sections:
+     * Project Overview
+     * Tech Stack
+     * Project Structure
+     * User Flows
+     * Critical UI/UX Components
+     * Error Handling & Support
+     * Implementation Tools
+
+   - .cursorrules
+     Purpose: Ensure adherence to coding standards and practices
+     Key Sections:
+     * Code Style and Structure
+     * Naming Conventions
+     * React and State Management
+     * Styling Guidelines
+     * Backend Development
+     * Security Best Practices
+     * Testing Requirements
+
+   - /docs Directory
+     Purpose: Review all relevant specification documents
+     Key Files:
+     * User Flows
+     * Technical Specifications
+     * Implementation Details
+     * Error Handling
+     * Security Protocols
+
+   - 24hour.txt
+     Purpose: Understand implementation timeline and critical paths
+     Key Sections:
+     * Hour-by-hour breakdown
+     * Technical requirements
+     * Success metrics
+     * Implementation steps
+
+2. Change Protocol
+   Before making any file changes:
+   a. Read all four required documents
+   b. Document which sections are relevant to the change
+   c. Verify change aligns with:
+      - Project architecture
+      - Coding standards
+      - Implementation timeline
+      - Security requirements
+
+3. Documentation Requirements
+   When making changes:
+   a. Note which documents were reviewed
+   b. Reference relevant sections
+   c. Explain how change adheres to standards
+   d. Update related documentation if needed
+
+4. Validation Steps
+   Before submitting changes:
+   - Verify against README requirements
+   - Check compliance with .cursorrules
+   - Confirm alignment with docs specifications
+   - Ensure fit within 24-hour timeline
+   - Document any deviations or exceptions
+
+5. Change Log Requirements
+   For each change:
+   - List documents reviewed
+   - Note relevant sections referenced
+   - Document any standard exceptions
+   - Explain timeline impact
+   - Record related documentation updates 

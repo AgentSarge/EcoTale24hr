@@ -1,0 +1,51 @@
+Critical UI/UX Components
+
+1. Breadcrumb Navigation
+   Purpose: Provide clear navigation context and hierarchy
+   Implementation:
+   - Consistent format: Home > Section > Subsection > Current Page
+   - Example: Home > Sustainability Analytics > Real-Time Metrics > Aluminum Recycling
+   - Click-through navigation at each level
+   - Visual separation using ">" symbol
+   - Current page shown in non-clickable state
+
+2. Contextual Tooltips
+   Purpose: Provide instant clarification of technical terms and metrics
+   Implementation:
+   - Hover-triggered information boxes
+   - Example: CLV → "Customer Lifetime Value = Total revenue per recycler"
+   - Consistent styling across platform
+   - Brief, clear explanations
+   - Optional "Learn More" links for complex terms
+
+3. One-Click Actions
+   Purpose: Enable rapid response to critical events
+   Implementation:
+   - "Alert Team" button on competitor trends
+   - Instant Slack/Teams message generation
+   - Pre-formatted alert templates
+   - Configurable notification targets
+   - Action confirmation tooltips
+
+4. Progressive Disclosure
+   Purpose: Manage information complexity and user cognitive load
+   Implementation:
+   - Basic metrics on initial dashboard view
+   - Expandable sections for detailed information
+   - "Show More" options for advanced features
+   - Drill-down capability for detailed analysis
+   - Context-aware filter options
+
+Technical Requirements:
+- React components for each UI element
+- Tailwind CSS for consistent styling
+- Accessibility compliance (WCAG 2.1)
+- Mobile-responsive design
+- Performance optimization for quick loading
+
+Integration Points:
+- Navigation system
+- Tooltip management library
+- Notification services
+- State management (Zustand)
+- Analytics tracking 
