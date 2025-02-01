@@ -1,73 +1,52 @@
-import React from 'react';
 import { ErrorBoundary } from '@sentry/react';
+import { Suspense } from 'react';
 
-const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => (
-  <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-      <h2 className="text-red-600 text-xl font-bold mb-4">Something went wrong:</h2>
-      <pre className="text-sm bg-red-50 p-4 rounded overflow-auto">
-        {error.message}
-      </pre>
+interface FallbackProps {
+  error: Error;
+  componentStack: string | null;
+  eventId: string | null;
+  resetError(): void;
+}
+
+const ErrorFallback = ({ error }: FallbackProps) => (
+  <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-red-50">
+    <div className="max-w-md p-8 bg-white rounded-lg shadow-lg">
+      <h1 className="mb-4 text-2xl font-bold text-red-600">Something went wrong</h1>
+      <p className="mb-4 text-gray-600">{error.message}</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
+      >
+        Try again
+      </button>
     </div>
   </div>
 );
 
-const TestError: React.FC = () => {
-  const throwError = () => {
-    throw new Error('This is a test error for Sentry!');
-  };
-
+function App() {
   return (
-    <button
-      onClick={throwError}
-      className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
+    <ErrorBoundary
+      fallback={ErrorFallback}
+      beforeCapture={(scope) => {
+        scope.setTag("location", "App");
+        scope.setContext("app_info", {
+          MODE: import.meta.env.MODE,
+          VERSION: import.meta.env.VITE_APP_VERSION,
+        });
+      }}
     >
-      Throw Test Error
-    </button>
-  );
-};
-
-const App: React.FC = () => {
-  return (
-    <ErrorBoundary fallback={ErrorFallback}>
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
-        <div className="container mx-auto px-4 py-16">
-          <h1 className="text-4xl font-bold text-primary-800 mb-8">
-            EcoTale24hr
-          </h1>
-          <div className="bg-white rounded-lg shadow-xl p-6">
-            <h2 className="text-2xl font-semibold text-primary-600 mb-4">
-              Development Setup Test
-            </h2>
-            <p className="text-gray-600 mb-6">
-              This is a test page to verify that all our configurations are working correctly.
+      <Suspense fallback={<div>Loading...</div>}>
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
+          <div className="container mx-auto px-4 py-16">
+            <h1 className="text-4xl font-bold text-center mb-8">Welcome to EcoTale</h1>
+            <p className="text-lg text-center text-gray-700">
+              Your platform for environmental storytelling and impact tracking.
             </p>
-            <div className="space-y-4">
-              <div className="p-4 bg-primary-50 rounded-lg">
-                <h3 className="font-medium text-primary-700 mb-2">
-                  Environment Variables:
-                </h3>
-                <pre className="text-sm bg-white p-3 rounded">
-                  {JSON.stringify({
-                    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-                    SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN,
-                    MODE: import.meta.env.MODE,
-                    VERSION: import.meta.env.VITE_APP_VERSION,
-                  }, null, 2)}
-                </pre>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <h3 className="font-medium text-red-700 mb-2">
-                  Error Tracking Test:
-                </h3>
-                <TestError />
-              </div>
-            </div>
           </div>
         </div>
-      </div>
+      </Suspense>
     </ErrorBoundary>
   );
-};
+}
 
 export default App; 

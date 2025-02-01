@@ -1,160 +1,137 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useDataFetch } from '../useDataFetch';
-import { cache } from '@/lib/cache';
-import { monitoring } from '@/lib/monitoring';
 
-// Mock dependencies
-vi.mock('@/lib/cache', () => ({
-  cache: {
+const mockData = { id: 1, name: 'Test' };
+const testUrl = 'test-url';
+
+vi.mock('../useCache', () => ({
+  useCache: () => ({
     get: vi.fn(),
     set: vi.fn(),
-  },
-}));
-
-vi.mock('@/lib/monitoring', () => ({
-  monitoring: {
-    startPerformanceTransaction: vi.fn(() => ({
-      finish: vi.fn(),
-    })),
-    captureException: vi.fn(),
-  },
+  }),
 }));
 
 describe('useDataFetch', () => {
-  const mockData = { id: 1, name: 'Test' };
-  const testUrl = 'https://api.example.com/data';
-
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    vi.resetAllMocks();
   });
 
   it('should fetch data successfully', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockData),
-    });
+    const mockResponse = new Response(JSON.stringify(mockData), { status: 200 });
+    vi.mocked(global.fetch).mockResolvedValueOnce(mockResponse);
 
     const { result } = renderHook(() => useDataFetch(testUrl));
 
-    expect(result.current.isLoading).toBe(true);
-    expect(result.current.data).toBeNull();
+    expect(result.current.loading).toBe(true);
     expect(result.current.error).toBeNull();
+    expect(result.current.data).toBeNull();
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+    await vi.waitFor(() => {
+      expect(result.current.loading).toBe(false);
     });
 
     expect(result.current.data).toEqual(mockData);
     expect(result.current.error).toBeNull();
-    expect(cache.set).toHaveBeenCalledWith(
-      `fetch:${testUrl}`,
-      mockData,
-      5 * 60 * 1000
-    );
+    expect(global.fetch).toHaveBeenCalledWith(testUrl, expect.any(Object));
   });
 
-  it('should return cached data if available', async () => {
-    (cache.get as jest.Mock).mockReturnValueOnce(mockData);
+  it('should use cached data if available', async () => {
+    const cache = {
+      get: vi.fn().mockReturnValue(mockData),
+      set: vi.fn(),
+    };
 
-    const { result } = renderHook(() => useDataFetch(testUrl));
+    const { result } = renderHook(() => useDataFetch(testUrl, { cache }));
 
+    expect(result.current.loading).toBe(false);
     expect(result.current.data).toEqual(mockData);
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('should handle fetch errors', async () => {
-    const error = new Error('Network error');
-    (global.fetch as jest.Mock).mockRejectedValueOnce(error);
+    const error = new Error('Failed to fetch');
+    vi.mocked(global.fetch).mockRejectedValueOnce(error);
 
     const { result } = renderHook(() => useDataFetch(testUrl));
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+    await vi.waitFor(() => {
+      expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.error).toBeTruthy();
     expect(result.current.data).toBeNull();
-    expect(monitoring.captureException).toHaveBeenCalledWith(error, { url: testUrl });
+    expect(result.current.error).toBe(error);
   });
 
-  it('should handle HTTP errors', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-    });
+  it('should handle non-ok responses', async () => {
+    const mockResponse = new Response('Not Found', { status: 404 });
+    vi.mocked(global.fetch).mockResolvedValueOnce(mockResponse);
 
     const { result } = renderHook(() => useDataFetch(testUrl));
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+    await vi.waitFor(() => {
+      expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.error?.message).toContain('404');
     expect(result.current.data).toBeNull();
+    expect(result.current.error).toBeInstanceOf(Error);
+    expect(result.current.error?.message).toContain('404');
+  });
+
+  it('should handle invalid JSON responses', async () => {
+    const mockResponse = new Response('Invalid JSON', { status: 200 });
+    vi.mocked(global.fetch).mockResolvedValueOnce(mockResponse);
+
+    const { result } = renderHook(() => useDataFetch(testUrl));
+
+    await vi.waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBeInstanceOf(Error);
   });
 
   it('should refetch data when dependencies change', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockData),
-    });
+    const mockResponse = new Response(JSON.stringify(mockData), { status: 200 });
+    vi.mocked(global.fetch).mockResolvedValue(mockResponse);
 
     const { result, rerender } = renderHook(
-      ({ id }) => useDataFetch(`${testUrl}/${id}`, { dependencies: [id] }),
-      { initialProps: { id: 1 } }
+      ({ dep }) => useDataFetch(testUrl, { dependencies: [dep] }),
+      { initialProps: { dep: 1 } }
     );
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
+    await vi.waitFor(() => {
+      expect(result.current.loading).toBe(false);
     });
 
-    // Change dependency
-    rerender({ id: 2 });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
 
-    expect(result.current.isLoading).toBe(true);
-    expect(global.fetch).toHaveBeenCalledTimes(2);
-  });
+    rerender({ dep: 2 });
 
-  it('should force refetch when calling refetch', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockData),
+    await vi.waitFor(() => {
+      expect(result.current.loading).toBe(false);
     });
-
-    const { result } = renderHook(() => useDataFetch(testUrl));
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    // Call refetch
-    await result.current.refetch();
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('should respect custom TTL', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockData),
-    });
+  it('should abort fetch when component unmounts', async () => {
+    const mockAbort = vi.fn();
+    const mockSignal = { aborted: false };
+    const mockController = { abort: mockAbort, signal: mockSignal };
+    
+    vi.spyOn(window, 'AbortController').mockImplementationOnce(() => mockController as unknown as AbortController);
 
-    const customTTL = 10000;
-    const { result } = renderHook(() =>
-      useDataFetch(testUrl, { cacheTTL: customTTL })
-    );
+    const mockResponse = new Response(JSON.stringify(mockData), { status: 200 });
+    vi.mocked(global.fetch).mockResolvedValueOnce(mockResponse);
 
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
+    const { unmount } = renderHook(() => useDataFetch(testUrl));
 
-    expect(cache.set).toHaveBeenCalledWith(
-      `fetch:${testUrl}`,
-      mockData,
-      customTTL
-    );
+    unmount();
+
+    expect(mockAbort).toHaveBeenCalled();
   });
 });

@@ -5,7 +5,6 @@ import App from './App';
 import './index.css';
 import { monitoring } from './lib/monitoring';
 import { SecurityHeaders } from './middleware/security-headers';
-import { performanceMonitor } from './lib/performance';
 
 // Initialize monitoring service
 monitoring.initialize({
@@ -26,9 +25,6 @@ if (import.meta.env.DEV) {
     console.warn('Security headers validation failed');
   }
 }
-
-// Performance monitoring is automatically initialized when imported
-// We can access metrics through performanceMonitor.getMetrics() and performanceMonitor.getResourceMetrics()
 
 // Initialize Sentry
 Sentry.init({

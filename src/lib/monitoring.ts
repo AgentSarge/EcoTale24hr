@@ -1,95 +1,107 @@
 import * as Sentry from '@sentry/react';
 import LogRocket from 'logrocket';
-import { User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
+
+interface MonitoringConfig {
+  sentryDsn: string;
+  logRocketAppId: string;
+  environment: 'development' | 'staging' | 'production';
+  release: string;
+}
+
+interface UserTraits {
+  [key: string]: string | number | boolean;
+}
 
 class MonitoringService {
-  private static instance: MonitoringService;
+  private initialized = false;
 
-  private constructor() {
+  initialize({ sentryDsn, logRocketAppId, environment, release }: MonitoringConfig): void {
+    if (this.initialized) return;
+
     // Initialize Sentry
-    if (import.meta.env.VITE_SENTRY_DSN) {
+    if (sentryDsn) {
       Sentry.init({
-        dsn: import.meta.env.VITE_SENTRY_DSN,
-        environment: import.meta.env.MODE,
-        tracesSampleRate: 1.0,
+        dsn: sentryDsn,
+        environment,
+        release,
         integrations: [
           new Sentry.BrowserTracing(),
-          new Sentry.Replay({
-            maskAllText: true,
-            blockAllMedia: true,
-          }),
+          new Sentry.Replay(),
         ],
+        tracesSampleRate: 1.0,
+        replaysSessionSampleRate: 0.1,
+        replaysOnErrorSampleRate: 1.0,
       });
     }
 
     // Initialize LogRocket
-    if (import.meta.env.VITE_LOGROCKET_APP_ID) {
-      LogRocket.init(import.meta.env.VITE_LOGROCKET_APP_ID, {
-        release: import.meta.env.VITE_APP_VERSION,
+    if (logRocketAppId) {
+      LogRocket.init(logRocketAppId, {
+        release,
         console: {
           shouldAggregateConsoleErrors: true,
         },
         network: {
           requestSanitizer: (request) => {
-            // Remove sensitive data from requests
-            if (request.headers.Authorization) {
-              request.headers.Authorization = '[FILTERED]';
+            // Sanitize sensitive data from requests
+            if (request.headers['authorization']) {
+              request.headers['authorization'] = '***';
             }
             return request;
           },
           responseSanitizer: (response) => {
-            // Remove sensitive data from responses
-            if (response.body) {
-              try {
-                const data = JSON.parse(response.body);
-                if (data.token || data.password) {
-                  response.body = '[FILTERED]';
-                }
-              } catch (e) {
-                // If response is not JSON, leave it as is
-              }
-            }
+            // Sanitize sensitive data from responses
             return response;
           },
         },
       });
     }
+
+    this.initialized = true;
   }
 
-  public static getInstance(): MonitoringService {
-    if (!MonitoringService.instance) {
-      MonitoringService.instance = new MonitoringService();
-    }
-    return MonitoringService.instance;
-  }
-
-  public setUser(user: User | null): void {
+  identifyUser(user: User | null): void {
     if (user) {
-      const userData = {
+      // Set user context in Sentry
+      Sentry.setUser({
         id: user.id,
-        email: user.email,
-      };
+        email: user.email || undefined,
+      });
 
-      Sentry.setUser(userData);
-      LogRocket.identify(user.id, userData);
+      // Set user in LogRocket
+      const traits: UserTraits = {
+        id: user.id,
+      };
+      
+      if (user.email) {
+        traits.email = user.email;
+      }
+      
+      if (user.user_metadata?.full_name) {
+        traits.name = user.user_metadata.full_name;
+      }
+
+      LogRocket.identify(user.id, traits);
     } else {
+      // Clear user context
       Sentry.setUser(null);
-      LogRocket.identify(null);
+      LogRocket.identify('');
     }
   }
 
-  public captureException(error: Error, context?: Record<string, any>): void {
-    console.error(error);
-    Sentry.captureException(error, { extra: context });
-    LogRocket.captureException(error, context);
+  captureException(error: Error, context?: Record<string, string | number | boolean>): void {
+    Sentry.captureException(error, { contexts: { additional: context } });
+    LogRocket.captureException(error, { tags: context });
   }
 
-  public setTag(key: string, value: string): void {
+  setTag(key: string, value: string): void {
     Sentry.setTag(key, value);
-    LogRocket.setTag(key, value);
+    // LogRocket doesn't have a direct setTag method, so we use captureMessage
+    LogRocket.captureMessage(`${key}: ${value}`, { tags: { [key]: value } });
   }
 
-  public startPerformanceTransaction(name: string, operation: string) {
+  startPerformanceTransaction(name: string, operation: string) {
     const transaction = Sentry.startTransaction({
       name,
       op: operation,
@@ -101,6 +113,14 @@ class MonitoringService {
       },
     };
   }
+
+  addBreadcrumb(message: string, category: string): void {
+    Sentry.addBreadcrumb({
+      message,
+      category,
+      level: 'info',
+    });
+  }
 }
 
-export const monitoring = MonitoringService.getInstance(); 
+export const monitoring = new MonitoringService(); 

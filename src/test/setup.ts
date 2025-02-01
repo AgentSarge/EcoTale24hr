@@ -1,76 +1,112 @@
+import { vi } from 'vitest';
 import '@testing-library/jest-dom';
-import { TextEncoder, TextDecoder } from 'util';
-import { mockClient } from '@supabase/supabase-js';
 
-// Mock crypto for UUID generation
-global.crypto = {
+// Mock crypto
+const mockCrypto = {
   randomUUID: () => 'test-uuid',
-  subtle: {} as any,
+  subtle: {},
   getRandomValues: () => new Uint8Array(10),
-} as Crypto;
+} as unknown as Crypto;
 
-// Mock TextEncoder/TextDecoder
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder as any;
-
-// Mock Supabase client
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: () => mockClient,
-}));
+global.crypto = mockCrypto;
 
 // Mock monitoring service
-jest.mock('@/lib/monitoring', () => ({
+vi.mock('@/lib/monitoring', () => ({
   monitoring: {
-    captureException: jest.fn(),
-    setTag: jest.fn(),
-    startPerformanceTransaction: jest.fn(() => ({
-      finish: jest.fn(),
+    captureException: vi.fn(),
+    setTag: vi.fn(),
+    startPerformanceTransaction: vi.fn(() => ({
+      finish: vi.fn(),
     })),
   },
 }));
 
-// Mock environment variables
-process.env.VITE_SUPABASE_URL = 'http://localhost:54321';
-process.env.VITE_SUPABASE_ANON_KEY = 'test-key';
-process.env.VITE_SENTRY_DSN = 'test-dsn';
-process.env.VITE_LOGROCKET_APP_ID = 'test/app';
+// Mock fetch
+global.fetch = vi.fn();
 
-// Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
+// Mock performance observer
+const mockPerformanceObserver = {
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  takeRecords: () => [],
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const PerformanceObserverMock = function(_callback: PerformanceObserverCallback) {
+  return mockPerformanceObserver;
+} as unknown as {
+  new (callback: PerformanceObserverCallback): PerformanceObserver;
+  supportedEntryTypes: string[];
+};
+
+PerformanceObserverMock.supportedEntryTypes = [
+  'element',
+  'event',
+  'first-input',
+  'largest-contentful-paint',
+  'layout-shift',
+  'longtask',
+  'mark',
+  'measure',
+  'navigation',
+  'paint',
+  'resource',
+];
+
+global.PerformanceObserver = PerformanceObserverMock;
+
+// Mock intersection observer
+const mockIntersectionObserver = {
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+  root: null,
+  rootMargin: '',
+  thresholds: [],
+  takeRecords: () => [],
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const IntersectionObserverMock = function(_callback: IntersectionObserverCallback) {
+  return mockIntersectionObserver;
+} as unknown as {
+  new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit): IntersectionObserver;
+};
+
+global.IntersectionObserver = IntersectionObserverMock;
+
+// Mock resize observer
+const mockResizeObserver = {
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  unobserve: vi.fn(),
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const ResizeObserverMock = function(_callback: ResizeObserverCallback) {
+  return mockResizeObserver;
+} as unknown as {
+  new (callback: ResizeObserverCallback): ResizeObserver;
+};
+
+global.ResizeObserver = ResizeObserverMock;
+
+// Mock match media
+global.matchMedia = vi.fn().mockImplementation(query => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: vi.fn(),
+  removeListener: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  dispatchEvent: vi.fn(),
+}));
+
+// Clear mocks between tests
+beforeEach(() => {
+  vi.clearAllMocks();
 });
 
-// Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
-  takeRecords() { return [] }
-} as any;
-
-// Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
-  constructor() {}
-  disconnect() {}
-  observe() {}
-  unobserve() {}
-} as any;
-
-// Clean up after each test
-afterEach(() => {
-  jest.clearAllMocks();
-});
-
-// Global test timeout
-jest.setTimeout(10000); 
+// Set default timeout
+vi.setConfig({ testTimeout: 10000 }); 

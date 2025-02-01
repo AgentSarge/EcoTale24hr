@@ -102,10 +102,10 @@ export class SecurityHeaders {
       );
 
       if (missingHeaders.length > 0) {
-        monitoring.captureException(
-          new Error('Missing security headers'),
-          { missingHeaders }
-        );
+        monitoring.captureException(new Error('Missing required security headers'), {
+          headers: missingHeaders.join(', ')
+        });
+        monitoring.setTag('missing_security_headers', missingHeaders.join(','));
         return false;
       }
 

@@ -1,5 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { monitoring } from '@/lib/monitoring';
+import { monitoring } from '../../lib/monitoring';
 
 interface Props {
   children: ReactNode;
@@ -7,49 +7,56 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false
-  };
-
-  public static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+export class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    monitoring.captureException(error, { extra: errorInfo });
+  static getDerivedStateFromError(error: Error): State {
+    return {
+      hasError: true,
+      error,
+    };
   }
 
-  public render() {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    monitoring.captureException(error, {
+      component: 'ErrorBoundary',
+      errorMessage: error.message,
+      errorStack: error.stack || 'No stack trace',
+      componentStackSummary: errorInfo.componentStack
+        ?.split('\n')
+        .slice(0, 3)
+        .join(' > ')
+        .substring(0, 200) || 'No component stack',
+    });
+  }
+
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
-          <h1 className="mb-4 text-2xl font-bold text-red-600">
-            Oops! Something went wrong
-          </h1>
-          <p className="mb-6 text-gray-600">
-            We're sorry for the inconvenience. Please try refreshing the page or contact support if the problem persists.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            Refresh Page
-          </button>
-          {process.env.NODE_ENV === 'development' && this.state.error && (
-            <pre className="mt-4 max-w-full overflow-x-auto rounded-md bg-gray-100 p-4 text-left text-sm text-gray-800">
-              {this.state.error.toString()}
-            </pre>
-          )}
+        <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-red-50">
+          <div className="max-w-md p-8 bg-white rounded-lg shadow-lg">
+            <h1 className="mb-4 text-2xl font-bold text-red-600">Something went wrong</h1>
+            <p className="mb-4 text-gray-600">{this.state.error?.message}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700"
+            >
+              Try again
+            </button>
+          </div>
         </div>
       );
     }
 
     return this.props.children;
   }
-}
-
-export default ErrorBoundary; 
+} 

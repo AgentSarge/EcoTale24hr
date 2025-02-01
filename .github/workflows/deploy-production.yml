@@ -71,7 +71,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: main
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4

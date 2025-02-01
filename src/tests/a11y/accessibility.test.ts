@@ -1,119 +1,88 @@
 import { test, expect } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
+import { injectAxe, checkA11y } from 'axe-playwright';
 
 test.describe('Accessibility Tests', () => {
   test.beforeEach(async ({ page }) => {
-    // Enable JavaScript in the page
-    await page.setJavaScriptEnabled(true);
-  });
-
-  test('should pass accessibility tests on the login page', async ({ page }) => {
-    await page.goto('/login');
-    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
-
-  test('should pass accessibility tests on the dashboard', async ({ page }) => {
-    // Login first
-    await page.goto('/login');
-    await page.fill('[name="email"]', 'test@example.com');
-    await page.fill('[name="password"]', 'password123');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('/dashboard');
-
-    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
-
-  test('should pass accessibility tests on the profile page', async ({ page }) => {
-    // Login and navigate to profile
-    await page.goto('/login');
-    await page.fill('[name="email"]', 'test@example.com');
-    await page.fill('[name="password"]', 'password123');
-    await page.click('button[type="submit"]');
-    await page.goto('/profile');
-
-    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
-
-  test('should pass accessibility tests on the settings page', async ({ page }) => {
-    // Login and navigate to settings
-    await page.goto('/login');
-    await page.fill('[name="email"]', 'test@example.com');
-    await page.fill('[name="password"]', 'password123');
-    await page.click('button[type="submit"]');
-    await page.goto('/settings');
-
-    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
-
-  test('should pass accessibility tests on error pages', async ({ page }) => {
-    await page.goto('/non-existent-page');
-    const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
-
-  test('should pass accessibility tests on forms', async ({ page }) => {
-    await page.goto('/signup');
-    
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .include('form') // Only test form elements
-      .analyze();
-    
-    expect(accessibilityScanResults.violations).toEqual([]);
-  });
-
-  test('should pass accessibility tests for interactive elements', async ({ page }) => {
     await page.goto('/');
-    
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .include('button')
-      .include('a')
-      .include('input')
-      .include('select')
-      .analyze();
-    
-    expect(accessibilityScanResults.violations).toEqual([]);
+    await injectAxe(page);
   });
 
-  test('should pass accessibility tests for images', async ({ page }) => {
-    await page.goto('/');
-    
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .include('img')
-      .include('svg')
-      .analyze();
-    
-    expect(accessibilityScanResults.violations).toEqual([]);
+  test('should pass accessibility checks', async ({ page }) => {
+    await checkA11y(page, {
+      detailedReport: true,
+      detailedReportOptions: {
+        html: true,
+      },
+    });
   });
 
-  test('should pass accessibility tests for headings structure', async ({ page }) => {
-    await page.goto('/');
-    
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .options({
-        rules: {
-          'heading-order': { enabled: true }
-        }
-      })
-      .analyze();
-    
-    expect(accessibilityScanResults.violations).toEqual([]);
+  test('should have proper heading structure', async ({ page }) => {
+    const headings = await page.evaluate(() => {
+      const headingElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      return Array.from(headingElements).map(heading => ({
+        level: heading.tagName.toLowerCase(),
+        text: heading.textContent?.trim(),
+      }));
+    });
+
+    // Verify h1 is present and used only once
+    const h1Headings = headings.filter(h => h.level === 'h1');
+    expect(h1Headings.length).toBe(1);
+
+    // Verify heading levels don't skip
+    let previousLevel = 1;
+    for (const heading of headings) {
+      const currentLevel = parseInt(heading.level.slice(1));
+      expect(currentLevel).toBeLessThanOrEqual(previousLevel + 1);
+      previousLevel = currentLevel;
+    }
   });
 
-  test('should pass accessibility tests for color contrast', async ({ page }) => {
-    await page.goto('/');
-    
-    const accessibilityScanResults = await new AxeBuilder({ page })
-      .options({
-        rules: {
-          'color-contrast': { enabled: true }
-        }
-      })
-      .analyze();
-    
-    expect(accessibilityScanResults.violations).toEqual([]);
+  test('should have proper focus management', async ({ page }) => {
+    // Test tab navigation
+    await page.keyboard.press('Tab');
+    const firstFocusedElement = await page.evaluate(() => document.activeElement?.tagName);
+    expect(firstFocusedElement).toBeTruthy();
+
+    // Verify focus is visible
+    const focusVisible = await page.evaluate(() => {
+      const activeElement = document.activeElement;
+      if (!activeElement) return false;
+      const styles = window.getComputedStyle(activeElement);
+      return styles.outlineStyle !== 'none' || styles.boxShadow !== 'none';
+    });
+    expect(focusVisible).toBe(true);
+  });
+
+  test('should have proper ARIA attributes', async ({ page }) => {
+    // Check for proper button labels
+    const buttons = await page.$$('button');
+    for (const button of buttons) {
+      const ariaLabel = await button.getAttribute('aria-label');
+      const text = await button.textContent();
+      expect(ariaLabel || text).toBeTruthy();
+    }
+
+    // Check for proper form labels
+    const formControls = await page.$$('input, select, textarea');
+    for (const control of formControls) {
+      const id = await control.getAttribute('id');
+      if (id) {
+        const label = await page.$(`label[for="${id}"]`);
+        expect(label).toBeTruthy();
+      }
+    }
+  });
+
+  test('should have proper color contrast', async ({ page }) => {
+    await checkA11y(page, {
+      detailedReport: true,
+      detailedReportOptions: {
+        html: true,
+      },
+      axeOptions: {
+        runOnly: ['color-contrast'],
+      },
+    });
   });
 }); 

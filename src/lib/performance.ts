@@ -1,189 +1,111 @@
-import { monitoring } from './monitoring';
 import * as Sentry from '@sentry/react';
-import { Metric } from '@sentry/types';
 
-interface PerformanceMetrics {
-  fcp: number; // First Contentful Paint
-  lcp: number; // Largest Contentful Paint
-  fid: number; // First Input Delay
-  cls: number; // Cumulative Layout Shift
-  ttfb: number; // Time to First Byte
-  jsHeapSize: number; // JavaScript Heap Size
-}
-
-interface ResourceMetrics {
+interface PerformanceMetric {
   name: string;
-  duration: number;
-  startTime: number;
-  transferSize?: number;
+  value: number;
+  unit: string;
 }
 
-class PerformanceMonitor {
-  private static instance: PerformanceMonitor;
-  private metricsBuffer: PerformanceMetrics[] = [];
-  private resourcesBuffer: ResourceMetrics[] = [];
-  private readonly bufferSize = 100;
-  private readonly flushInterval = 30000; // 30 seconds
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
 
-  private constructor() {
-    this.initializeObservers();
-    this.startPeriodicFlush();
+export class PerformanceMonitor {
+  private metrics: PerformanceMetric[] = [];
+
+  constructor() {
+    this.initObservers();
   }
 
-  public static getInstance(): PerformanceMonitor {
-    if (!PerformanceMonitor.instance) {
-      PerformanceMonitor.instance = new PerformanceMonitor();
-    }
-    return PerformanceMonitor.instance;
+  private initObservers() {
+    // Core Web Vitals
+    this.observeWebVitals();
+    // Resource timing
+    this.observeResourceTiming();
+    // Long tasks
+    this.observeLongTasks();
   }
 
-  private initializeObservers(): void {
-    // Web Vitals Observer
-    if ('PerformanceObserver' in window) {
-      // First Contentful Paint
-      this.observePerformanceEntry('paint', (entries) => {
-        entries.forEach((entry) => {
-          if (entry.name === 'first-contentful-paint') {
-            this.recordWebVital('fcp', entry.startTime);
-          }
-        });
-      });
+  private observeWebVitals() {
+    if (!('PerformanceObserver' in window)) return;
 
-      // Largest Contentful Paint
-      this.observePerformanceEntry('largest-contentful-paint', (entries) => {
-        entries.forEach((entry) => {
-          this.recordWebVital('lcp', entry.startTime);
-        });
-      });
-
-      // First Input Delay
-      this.observePerformanceEntry('first-input', (entries) => {
-        entries.forEach((entry) => {
-          const fid = entry.processingStart - entry.startTime;
-          this.recordWebVital('fid', fid);
-        });
-      });
-
-      // Layout Shifts
-      this.observePerformanceEntry('layout-shift', (entries) => {
-        let cumulativeScore = 0;
-        entries.forEach((entry) => {
-          cumulativeScore += entry.value;
-        });
-        this.recordWebVital('cls', cumulativeScore);
-      });
-
-      // Resource Timing
-      this.observePerformanceEntry('resource', (entries) => {
-        entries.forEach((entry) => {
-          this.recordResourceTiming(entry as PerformanceResourceTiming);
-        });
-      });
-    }
-
-    // Memory Usage
-    this.monitorMemoryUsage();
-  }
-
-  private observePerformanceEntry(
-    entryType: string,
-    callback: (entries: PerformanceEntry[]) => void
-  ): void {
-    try {
-      const observer = new PerformanceObserver((list) => {
-        callback(list.getEntries());
-      });
-      observer.observe({ entryType, buffered: true });
-    } catch (error) {
-      monitoring.captureException(error as Error, {
-        context: `PerformanceMonitor.observe.${entryType}`
-      });
-    }
-  }
-
-  private recordWebVital(metric: keyof PerformanceMetrics, value: number): void {
-    const transaction = monitoring.startPerformanceTransaction(
-      `web-vital-${metric}`,
-      'web-vital'
-    );
-
-    Sentry.metrics.distribution(`web.vitals.${metric}`, value, {
-      unit: 'millisecond',
-    } as Metric);
-
-    transaction.finish();
-  }
-
-  private recordResourceTiming(entry: PerformanceResourceTiming): void {
-    this.resourcesBuffer.push({
-      name: entry.name,
-      duration: entry.duration,
-      startTime: entry.startTime,
-      transferSize: entry.transferSize,
+    const webVitalsObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === 'largest-contentful-paint') {
+          this.recordMetric('LCP', entry.startTime, 'ms');
+        } else if (entry.entryType === 'first-input') {
+          const fid = (entry as PerformanceEventTiming).processingStart - entry.startTime;
+          this.recordMetric('FID', fid, 'ms');
+        } else if (entry.entryType === 'layout-shift') {
+          const cls = (entry as LayoutShift).value;
+          this.recordMetric('CLS', cls, '');
+        }
+      }
     });
 
-    if (this.resourcesBuffer.length >= this.bufferSize) {
-      this.flushResourceMetrics();
-    }
-  }
-
-  private monitorMemoryUsage(): void {
-    if ('memory' in performance) {
-      setInterval(() => {
-        const memory = (performance as any).memory;
-        this.recordWebVital('jsHeapSize', memory.usedJSHeapSize);
-      }, 10000);
-    }
-  }
-
-  private async flushResourceMetrics(): Promise<void> {
-    if (this.resourcesBuffer.length === 0) return;
-
-    const metrics = [...this.resourcesBuffer];
-    this.resourcesBuffer = [];
-
-    const transaction = monitoring.startPerformanceTransaction(
-      'resource-metrics-flush',
-      'performance'
-    );
-
     try {
-      // Send to monitoring service
-      metrics.forEach((metric) => {
-        Sentry.metrics.distribution('web.resource.duration', metric.duration, {
-          unit: 'millisecond',
-          resource: metric.name,
-        } as Metric);
-
-        if (metric.transferSize) {
-          Sentry.metrics.distribution('web.resource.size', metric.transferSize, {
-            unit: 'byte',
-            resource: metric.name,
-          } as Metric);
-        }
+      webVitalsObserver.observe({
+        entryTypes: ['largest-contentful-paint', 'first-input', 'layout-shift']
       });
     } catch (error) {
-      monitoring.captureException(error as Error, {
-        context: 'PerformanceMonitor.flushResourceMetrics'
-      });
-    } finally {
-      transaction.finish();
+      console.error('Failed to observe web vitals:', error);
     }
   }
 
-  private startPeriodicFlush(): void {
-    setInterval(() => {
-      this.flushResourceMetrics();
-    }, this.flushInterval);
+  private observeResourceTiming() {
+    if (!('PerformanceObserver' in window)) return;
+
+    const resourceObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === 'resource') {
+          const resource = entry as PerformanceResourceTiming;
+          this.recordMetric(
+            `Resource-${resource.name}`,
+            resource.duration,
+            'ms'
+          );
+        }
+      }
+    });
+
+    try {
+      resourceObserver.observe({ entryTypes: ['resource'] });
+    } catch (error) {
+      console.error('Failed to observe resource timing:', error);
+    }
   }
 
-  public getMetrics(): PerformanceMetrics[] {
-    return [...this.metricsBuffer];
+  private observeLongTasks() {
+    if (!('PerformanceObserver' in window)) return;
+
+    const longTaskObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === 'longtask') {
+          this.recordMetric('LongTask', entry.duration, 'ms');
+        }
+      }
+    });
+
+    try {
+      longTaskObserver.observe({ entryTypes: ['longtask'] });
+    } catch (error) {
+      console.error('Failed to observe long tasks:', error);
+    }
   }
 
-  public getResourceMetrics(): ResourceMetrics[] {
-    return [...this.resourcesBuffer];
+  private recordMetric(name: string, value: number, unit: string) {
+    this.metrics.push({ name, value, unit });
+    Sentry.addBreadcrumb({
+      category: 'performance',
+      message: `${name}: ${value}${unit}`,
+      level: 'info'
+    });
+  }
+
+  public getMetrics(): PerformanceMetric[] {
+    return this.metrics;
   }
 }
 
-export const performanceMonitor = PerformanceMonitor.getInstance(); 
+export const performanceMonitor = new PerformanceMonitor(); 
