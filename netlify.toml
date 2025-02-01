@@ -1,9 +1,9 @@
 # example netlify.toml
 [build]
-  base = "frontend"
-  command = "npm run build"
-  publish = "dist"
-  functions = "netlify/functions"
+  base = "."
+  command = "cd frontend && npm install && npm run build"
+  publish = "frontend/dist"
+  functions = "frontend/netlify/functions"
 
 [[redirects]]
   from = "/*"
@@ -11,9 +11,9 @@
   status = 200
 
 [dev]
-  command = "npm run dev"
+  command = "cd frontend && npm run dev"
   port = 5173
-  publish = "dist"
+  publish = "frontend/dist"
   framework = "vite"
 
 [build.environment]
@@ -28,13 +28,14 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Content-Security-Policy = """
       default-src 'self';
-      connect-src 'self' https://*.supabase.co http://localhost:* http://127.0.0.1:*;
+      connect-src 'self' https://*.supabase.co wss://*.supabase.co http://localhost:* http://127.0.0.1:* https://api.supabase.co;
       img-src 'self' data: blob: https://*.supabase.co;
-      script-src 'self' 'unsafe-inline' 'unsafe-eval';
-      style-src 'self' 'unsafe-inline';
-      frame-ancestors 'none';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api.supabase.co;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       font-src 'self' data: https://fonts.gstatic.com;
+      frame-ancestors 'none';
       form-action 'self';
+      worker-src 'self' blob:;
     """
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.

@@ -1,17 +1,38 @@
 import React from 'react'
-import ReactDOM from 'react-dom/client'
+import { createRoot } from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 import App from './App'
 import './index.css'
+import { monitoring } from './lib/monitoring'
+import { SecurityHeaders } from './middleware/security-headers'
+import { StoreProvider } from './providers/StoreProvider'
+
+// Initialize monitoring service
+monitoring.initialize({
+  sentryDsn: import.meta.env.VITE_SENTRY_DSN,
+  logRocketAppId: import.meta.env.VITE_LOGROCKET_APP_ID,
+  environment: import.meta.env.MODE as 'development' | 'staging' | 'production',
+  release: import.meta.env.VITE_APP_VERSION || '1.0.0',
+})
+
+// Apply security headers
+const securityHeaders = new SecurityHeaders()
+securityHeaders.applySecurityHeaders()
+
+// Validate headers in development
+if (import.meta.env.DEV) {
+  const headersValid = securityHeaders.validateHeaders()
+  if (!headersValid) {
+    console.warn('Security headers validation failed')
+  }
+}
 
 // Initialize Sentry
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [
-    new Sentry.BrowserTracing({
-      tracePropagationTargets: ['localhost', 'ecotale.app'],
-    }),
-    new Sentry.Replay(),
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
   ],
   // Performance Monitoring
   tracesSampleRate: 1.0, // Capture 100% of transactions in development
@@ -29,10 +50,16 @@ Sentry.init({
   },
 })
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const container = document.getElementById('root')
+if (!container) {
+  throw new Error('Root element not found')
+}
+
+const root = createRoot(container)
+root.render(
   <React.StrictMode>
-    <Sentry.ErrorBoundary fallback={<div>An error has occurred</div>}>
+    <StoreProvider>
       <App />
-    </Sentry.ErrorBoundary>
+    </StoreProvider>
   </React.StrictMode>,
 )
