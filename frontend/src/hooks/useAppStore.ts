@@ -1,11 +1,29 @@
 import { useStore } from '../providers/StoreProvider';
 
+interface EcoStore {
+  saveOnboardingData: (data: any) => Promise<void>;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+interface AuthStore {
+  session: any;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+interface CompanyStore {
+  data: any;
+  isLoading: boolean;
+  error: Error | null;
+}
+
 export const useAppStore = () => {
   const store = useStore();
   return {
-    auth: store.auth,
-    eco: store.eco,
-    company: store.company,
+    auth: store.auth as AuthStore,
+    eco: store.eco as EcoStore,
+    company: store.company as CompanyStore,
     
     // Computed properties
     isAuthenticated: !!store.auth.session,

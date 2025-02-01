@@ -1,53 +1,30 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import * as Sentry from '@sentry/react'
 import App from './App'
 import './index.css'
 import { monitoring } from './lib/monitoring'
-import { createSecurityHeaders } from './middleware/security-headers'
+import { createSecurityService } from './middleware/security'
+import { env } from './config/env'
 
 // Initialize monitoring service
 monitoring.initialize({
-  sentryDsn: import.meta.env.VITE_SENTRY_DSN,
-  logRocketAppId: import.meta.env.VITE_LOGROCKET_APP_ID,
-  environment: import.meta.env.MODE as 'development' | 'staging' | 'production',
-  release: import.meta.env.VITE_APP_VERSION || '1.0.0',
+  sentryDsn: env.sentry.dsn,
+  logRocketAppId: env.logRocket.appId,
+  environment: env.app.environment,
+  release: env.app.version,
 })
 
 // Apply security headers
-const headers = createSecurityHeaders({
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-  isDevelopment: import.meta.env.DEV,
+const security = createSecurityService({
+  supabaseUrl: env.supabase.url,
+  isDevelopment: env.app.isDev,
 })
-headers.applyHeaders()
+security.applyHeaders()
 
 // Validate headers in development
-if (import.meta.env.DEV) {
-  headers.validateHeaders()
+if (env.app.isDev) {
+  security.validateHeaders()
 }
-
-// Initialize Sentry
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration(),
-  ],
-  // Performance Monitoring
-  tracesSampleRate: 1.0, // Capture 100% of transactions in development
-  // Session Replay
-  replaysSessionSampleRate: 0.1, // Sample 10% of sessions
-  replaysOnErrorSampleRate: 1.0, // Sample 100% of sessions with errors
-  environment: import.meta.env.MODE,
-  beforeSend(event) {
-    // Sanitize sensitive data
-    if (event.request) {
-      delete event.request.cookies;
-      delete event.request.headers;
-    }
-    return event;
-  },
-})
 
 const container = document.getElementById('root')
 if (!container) {

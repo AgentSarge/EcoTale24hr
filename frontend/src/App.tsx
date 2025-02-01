@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import * as Sentry from '@sentry/react';
 import { StoreProvider } from './providers/StoreProvider';
 import { useAppStore } from './hooks/useAppStore';
 import { Navigation } from './components/layout/Navigation';
@@ -15,8 +14,16 @@ import { SupplierComparison } from './components/supply-chain/SupplierComparison
 import { Login } from './components/auth/Login';
 import { Register } from './components/auth/Register';
 import { NotFound } from './components/NotFound';
+import * as Sentry from '@sentry/react';
 
-const ErrorFallback = ({ error, resetError }: { error: Error; resetError: () => void }) => (
+interface FallbackProps {
+  error: Error;
+  componentStack: string | null;
+  eventId: string | null;
+  resetError(): void;
+}
+
+const ErrorFallback: React.FC<FallbackProps> = ({ error, resetError }) => (
   <div className="flex min-h-screen items-center justify-center bg-gray-50">
     <div className="rounded-lg bg-white p-8 shadow-lg">
       <h1 className="mb-4 text-2xl font-bold text-red-600">Something went wrong</h1>
@@ -136,8 +143,13 @@ const AppRoutes = () => (
 const App: React.FC = () => {
   return (
     <Sentry.ErrorBoundary
-      fallback={({ error, resetError }) => (
-        <ErrorFallback error={error} resetError={resetError} />
+      fallback={(errorData) => (
+        <ErrorFallback
+          error={errorData.error}
+          componentStack={errorData.componentStack}
+          eventId={errorData.eventId}
+          resetError={errorData.resetError}
+        />
       )}
     >
       <StoreProvider>
