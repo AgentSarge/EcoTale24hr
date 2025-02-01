@@ -1,0 +1,82 @@
+# Rule Configuration for OWASP ZAP Scanner
+# Format: <rule_id>\t<rule_name>\t<threshold>\t<enabled>
+
+# Authentication
+10010	Modern Web Application	MEDIUM	true
+10011	Cookie Without Secure Flag	HIGH	true
+10012	Password Autocomplete	MEDIUM	true
+10015	Incomplete or No Cache-control Header	LOW	true
+10016	Web Browser XSS Protection Not Enabled	MEDIUM	true
+10017	Cross-Domain JavaScript Source File Inclusion	MEDIUM	true
+10019	Content-Type Header Missing	MEDIUM	true
+10020	X-Frame-Options Header	HIGH	true
+10021	X-Content-Type-Options Header Missing	MEDIUM	true
+10023	Information Disclosure - Debug Error Messages	HIGH	true
+10024	Information Disclosure - Sensitive Information in URL	MEDIUM	true
+10025	Information Disclosure - Sensitive Information in HTTP Referrer Header	MEDIUM	true
+10026	HTTP Parameter Override	MEDIUM	true
+10027	Information Disclosure - Suspicious Comments	LOW	true
+10028	Open Redirect	MEDIUM	true
+10029	Cookie Poisoning	MEDIUM	true
+10030	User Controllable HTML Element Attribute (Potential XSS)	HIGH	true
+10031	User Controllable HTML Element (Potential XSS)	HIGH	true
+10032	Viewstate Scanner	MEDIUM	true
+10033	Directory Browsing	MEDIUM	true
+10034	Heartbleed OpenSSL Vulnerability	HIGH	true
+10035	Strict-Transport-Security Header	HIGH	true
+10036	Server Leaks Version Information	LOW	true
+10037	Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)	LOW	true
+10038	Content Security Policy (CSP) Header Not Set	MEDIUM	true
+10039	X-Backend-Server Header Information Leak	LOW	true
+10040	Secure Pages Include Mixed Content	MEDIUM	true
+10041	HTTP to HTTPS Insecure Transition in Form Post	MEDIUM	true
+10042	HTTPS to HTTP Insecure Transition in Form Post	MEDIUM	true
+10043	User Controllable JavaScript Event (XSS)	HIGH	true
+10044	Big Redirect Detected (Potential Sensitive Information Leak)	MEDIUM	true
+10045	Source Code Disclosure - /WEB-INF folder	MEDIUM	true
+10046	Weak SSL/TLS Protocols	HIGH	true
+10047	HTTPS Content Available via HTTP	MEDIUM	true
+10048	Remote Code Execution - Shell Shock	HIGH	true
+10049	Weak SSL/TLS Ciphers	HIGH	true
+10050	Retrieved from Cache	LOW	true
+10051	Relative Path Confusion	MEDIUM	true
+10052	X-ChromeLogger-Data Header Information Leak	LOW	true
+10053	Apache Range Header DoS (CVE-2011-3192)	MEDIUM	true
+10054	Cookie without SameSite Attribute	LOW	true
+10055	CSP Scanner	MEDIUM	true
+10056	X-Debug-Token Information Leak	LOW	true
+10057	Username Hash Found	LOW	true
+10058	GET for POST	LOW	true
+10059	X-AspNet-Version Response Header	LOW	true
+10060	AJAX Request Found	LOW	true
+10061	X-AspNetMvc-Version Response Header	LOW	true
+10062	PII Disclosure	LOW	true
+10063	Permissions Policy Header Not Set	LOW	true
+10095	Backup File Disclosure	MEDIUM	true
+10096	Timestamp Disclosure	LOW	true
+10097	Hash Disclosure	LOW	true
+10098	Cross-Domain Misconfiguration	MEDIUM	true
+10099	Source Code Disclosure	MEDIUM	true
+10105	Weak Authentication Method	MEDIUM	true
+10106	HTTP Only Site	MEDIUM	true
+10107	Httpoxy - Proxy Header Misuse	MEDIUM	true
+10108	Reverse Tabnabbing	MEDIUM	true
+10109	Modern Web Application	MEDIUM	true
+
+40025	IGNORE	Proxy Disclosure
+
+90022	WARN	Application Error Disclosure
+90033	WARN	Loosely Scoped Cookie
+
+10202	FAIL	Absence of Anti-CSRF Tokens
+40012	FAIL	Cross Site Scripting (Reflected)
+40014	FAIL	Cross Site Scripting (Persistent)
+40018	FAIL	SQL Injection
+90019	FAIL	Server Side Include
+90020	FAIL	Remote OS Command Injection
+90021	FAIL	XPath Injection
+90023	FAIL	XML External Entity Attack
+90024	FAIL	Generic Padding Oracle
+90025	FAIL	Expression Language Injection
+90026	FAIL	SOAP Action Spoofing
+90028	FAIL	Insecure Object Deserialization 

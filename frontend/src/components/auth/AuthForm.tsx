@@ -55,7 +55,7 @@ export const AuthForm = () => {
 
         {error && (
           <div className="bg-red-50 p-4 rounded-md">
-            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-sm text-red-700">{error.message}</p>
           </div>
         )}
 

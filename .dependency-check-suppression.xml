@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+   <!-- Example suppression:
+   <suppress>
+      <notes>False positive for React dev dependencies</notes>
+      <packageUrl regex="true">^pkg:npm/react@.*$</packageUrl>
+      <cve>CVE-2018-6341</cve>
+   </suppress>
+   -->
+</suppressions> 

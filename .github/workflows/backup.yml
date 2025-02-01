@@ -1,0 +1,121 @@
+name: Database Backup
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install Supabase CLI
+        run: |
+          curl -sL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz | tar xz
+          sudo mv supabase /usr/local/bin/supabase
+
+      - name: Set up environment
+        run: |
+          echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> $GITHUB_ENV
+          echo "SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "BACKUP_BUCKET=${{ secrets.BACKUP_BUCKET }}" >> $GITHUB_ENV
+
+      - name: Create backup
+        run: |
+          BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+          BACKUP_FILE="backup_${BACKUP_DATE}.sql"
+          
+          # Create database backup
+          supabase db dump -p "${{ secrets.SUPABASE_DB_PASSWORD }}" > "$BACKUP_FILE"
+          
+          # Compress backup
+          gzip "$BACKUP_FILE"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload backup to S3
+        run: |
+          BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).sql.gz"
+          aws s3 cp "$BACKUP_FILE" "s3://$BACKUP_BUCKET/daily/$BACKUP_FILE"
+          
+          # Also keep a weekly backup
+          if [ $(date +%u) = 7 ]; then
+            aws s3 cp "$BACKUP_FILE" "s3://$BACKUP_BUCKET/weekly/$BACKUP_FILE"
+          fi
+          
+          # Keep a monthly backup on the 1st of each month
+          if [ $(date +%d) = 01 ]; then
+            aws s3 cp "$BACKUP_FILE" "s3://$BACKUP_BUCKET/monthly/$BACKUP_FILE"
+          fi
+
+      - name: Cleanup old backups
+        run: |
+          # Remove daily backups older than 7 days
+          aws s3 ls "s3://$BACKUP_BUCKET/daily/" | \
+            awk '{print $4}' | \
+            while read -r file; do
+              timestamp=$(echo "$file" | grep -oP '\d{8}')
+              if [ $(( ($(date +%s) - $(date -d "$timestamp" +%s)) / 86400 )) -gt 7 ]; then
+                aws s3 rm "s3://$BACKUP_BUCKET/daily/$file"
+              fi
+            done
+          
+          # Remove weekly backups older than 30 days
+          aws s3 ls "s3://$BACKUP_BUCKET/weekly/" | \
+            awk '{print $4}' | \
+            while read -r file; do
+              timestamp=$(echo "$file" | grep -oP '\d{8}')
+              if [ $(( ($(date +%s) - $(date -d "$timestamp" +%s)) / 86400 )) -gt 30 ]; then
+                aws s3 rm "s3://$BACKUP_BUCKET/weekly/$file"
+              fi
+            done
+          
+          # Remove monthly backups older than 365 days
+          aws s3 ls "s3://$BACKUP_BUCKET/monthly/" | \
+            awk '{print $4}' | \
+            while read -r file; do
+              timestamp=$(echo "$file" | grep -oP '\d{8}')
+              if [ $(( ($(date +%s) - $(date -d "$timestamp" +%s)) / 86400 )) -gt 365 ]; then
+                aws s3 rm "s3://$BACKUP_BUCKET/monthly/$file"
+              fi
+            done
+
+      - name: Update backup metadata
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          BACKUP_ID=$(uuidgen)
+          BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).sql.gz"
+          BACKUP_SIZE=$(stat -f%z "$BACKUP_FILE")
+          BACKUP_CHECKSUM=$(sha256sum "$BACKUP_FILE" | cut -d' ' -f1)
+          
+          # Update backup metadata in Supabase
+          curl -X POST "$SUPABASE_URL/rest/v1/backup_metadata" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"id\": \"$BACKUP_ID\",
+              \"type\": \"full\",
+              \"status\": \"completed\",
+              \"size_bytes\": $BACKUP_SIZE,
+              \"checksum\": \"$BACKUP_CHECKSUM\"
+            }"
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"❌ Database backup failed on $(date)\"}" \
+            $SLACK_WEBHOOK 

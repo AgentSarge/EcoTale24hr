@@ -1,0 +1,10 @@
+{
+  "name": "ecotale24hr",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@sentry/react": "^7.64.0",
+    "@sentry/tracing": "^7.64.0",
+    "logrocket": "^5.0.1"
+  }
+} 
