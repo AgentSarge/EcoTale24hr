@@ -1,32 +1,17 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './stores/authStore';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import * as Sentry from '@sentry/react';
+import { StoreProvider } from './providers/StoreProvider';
+import { useAppStore } from './hooks/useAppStore';
 import { Navigation } from './components/layout/Navigation';
-import { AuthForm } from './components/auth/AuthForm';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { Leaderboard } from './components/leaderboard/Leaderboard';
 import { Profile } from './components/profile/Profile';
 import { Tasks } from './components/tasks/Tasks';
-import { useProfileStore } from './stores/profileStore';
-import { useTaskStore } from './stores/taskStore';
 import { IndustrySelection } from './components/onboarding/IndustrySelection';
 import { SustainabilityGoals } from './components/dashboard/SustainabilityGoals';
 import { MaterialJourney } from './components/supply-chain/MaterialJourney';
 import { SupplierComparison } from './components/supply-chain/SupplierComparison';
-import { Login } from './components/auth/Login';
-import { Register } from './components/auth/Register';
-import { NotFound } from './components/NotFound';
-import { securityMiddleware } from '@/middleware/security';
-import { auditLogger } from '@/utils/auditLogger';
-import { useLocation } from 'react-router-dom';
-import * as Sentry from '@sentry/react';
-import { StoreProvider } from './providers/StoreProvider';
-import { Router as CustomRouter } from './Router';
-
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session } = useAuthStore();
-  return session ? <>{children}</> : <Navigate to="/auth" />;
-};
 
 const ErrorFallback = ({ error }: { error: Error }) => (
   <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -45,128 +30,9 @@ const ErrorFallback = ({ error }: { error: Error }) => (
   </div>
 );
 
-const App: React.FC = () => {
-  const { isAuthenticated, user } = useAuthStore();
-  const { fetchProfile } = useProfileStore();
-  const { generateTasks } = useTaskStore();
-  const location = useLocation();
-
-  useEffect(() => {
-    // Initialize security headers
-    securityMiddleware.setupSecurityHeaders();
-
-    // Log application start
-    auditLogger.logSystem('app_initialized', {
-      timestamp: new Date().toISOString(),
-      environment: import.meta.env.MODE,
-    });
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      auditLogger.logAuth('user_session_start', {
-        userId: user.id,
-        email: user.email,
-      });
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchProfile();
-    generateTasks();
-  }, [fetchProfile, generateTasks]);
-
-  return (
-    <Sentry.ErrorBoundary
-      fallback={(errorData) => <ErrorFallback error={errorData.error as Error} />}
-    >
-      <StoreProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            <Navigation />
-            <main className="container mx-auto px-4 py-8">
-              <Routes>
-                {/* Public Routes */}
-                <Route
-                  path="/"
-                  element={
-                    isAuthenticated ? (
-                      <Navigate to="/dashboard" replace />
-                    ) : (
-                      <Navigate to="/login" replace />
-                    )
-                  }
-                />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-
-                {/* Protected Routes */}
-                <Route
-                  path="/onboarding"
-                  element={
-                    isAuthenticated ? <IndustrySelection /> : <Navigate to="/login" replace />
-                  }
-                />
-                <Route
-                  path="/dashboard"
-                  element={
-                    isAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
-                  }
-                />
-                <Route
-                  path="/sustainability-goals"
-                  element={
-                    isAuthenticated ? <SustainabilityGoals /> : <Navigate to="/login" replace />
-                  }
-                />
-                <Route
-                  path="/supply-chain"
-                  element={
-                    isAuthenticated ? (
-                      <div className="space-y-8">
-                        <MaterialJourney />
-                        <SupplierComparison />
-                      </div>
-                    ) : (
-                      <Navigate to="/login" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    isAuthenticated ? <Profile /> : <Navigate to="/login" replace />
-                  }
-                />
-                <Route
-                  path="/leaderboard"
-                  element={
-                    isAuthenticated ? <Leaderboard /> : <Navigate to="/login" replace />
-                  }
-                />
-
-                {/* Error Routes */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-          </div>
-        </Router>
-      </StoreProvider>
-    </Sentry.ErrorBoundary>
-  );
-};
-
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAppStore();
   const location = useLocation();
-
-  useEffect(() => {
-    if (!user && !isLoading) {
-      auditLogger.logSecurity('unauthorized_access_attempt', {
-        path: location.pathname,
-      });
-    }
-  }, [user, isLoading, location]);
 
   if (isLoading) {
     return (
@@ -176,11 +42,104 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
+};
+
+const AppRoutes = () => (
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <Navigation />
+    <main className="container mx-auto px-4 py-8">
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/"
+          element={<Navigate to="/login" replace />}
+        />
+
+        {/* Protected Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sustainability-goals"
+          element={
+            <ProtectedRoute>
+              <SustainabilityGoals />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/supply-chain"
+          element={
+            <ProtectedRoute>
+              <div className="space-y-8">
+                <MaterialJourney />
+                <SupplierComparison />
+              </div>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <ProtectedRoute>
+              <Leaderboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tasks"
+          element={
+            <ProtectedRoute>
+              <Tasks />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <IndustrySelection />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Error Routes */}
+        <Route path="*" element={<div>Page not found</div>} />
+      </Routes>
+    </main>
+  </div>
+);
+
+const App: React.FC = () => {
+  return (
+    <Sentry.ErrorBoundary
+      fallback={(errorData) => <ErrorFallback error={errorData.error as Error} />}
+    >
+      <StoreProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </StoreProvider>
+    </Sentry.ErrorBoundary>
+  );
 };
 
 export default App;

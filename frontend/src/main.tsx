@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/react'
 import App from './App'
 import './index.css'
 import { monitoring } from './lib/monitoring'
-import { SecurityHeaders } from './middleware/security-headers'
+import { SecurityHeaders, createSecurityHeaders } from './middleware/security-headers'
 import { StoreProvider } from './providers/StoreProvider'
 
 // Initialize monitoring service
@@ -16,15 +16,15 @@ monitoring.initialize({
 })
 
 // Apply security headers
-const securityHeaders = new SecurityHeaders()
-securityHeaders.applySecurityHeaders()
+const securityHeaders = createSecurityHeaders({
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+  isDevelopment: import.meta.env.DEV,
+})
+securityHeaders.applyHeaders()
 
 // Validate headers in development
 if (import.meta.env.DEV) {
-  const headersValid = securityHeaders.validateHeaders()
-  if (!headersValid) {
-    console.warn('Security headers validation failed')
-  }
+  securityHeaders.validateHeaders()
 }
 
 // Initialize Sentry
