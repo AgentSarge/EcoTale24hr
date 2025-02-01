@@ -11,14 +11,6 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | null>(null);
 
-export const useStore = () => {
-  const context = useContext(StoreContext);
-  if (!context) {
-    throw new Error('useStore must be used within a StoreProvider');
-  }
-  return context;
-};
-
 interface StoreProviderProps {
   children: ReactNode;
 }
@@ -33,4 +25,12 @@ export const StoreProvider: React.FC<StoreProviderProps> = ({ children }) => {
       {children}
     </StoreContext.Provider>
   );
+};
+
+export const useStore = () => {
+  const context = useContext(StoreContext);
+  if (!context) {
+    throw new Error('useStore must be used within a StoreProvider');
+  }
+  return context;
 }; 
