@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/react';
-import { BrowserTracing } from '@sentry/tracing';
 import LogRocket from 'logrocket';
 
 interface MonitoringConfig {
@@ -21,13 +20,7 @@ class MonitoringService {
         dsn: config.sentryDsn,
         environment: config.environment,
         release: config.release,
-        integrations: [
-          new BrowserTracing(),
-          Sentry.replayIntegration(),
-        ],
         tracesSampleRate: config.environment === 'production' ? 0.2 : 1.0,
-        replaysSessionSampleRate: 0.1,
-        replaysOnErrorSampleRate: 1.0,
       });
     }
 
