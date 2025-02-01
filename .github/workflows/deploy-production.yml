@@ -1,4 +1,4 @@
-name: Production Deployment
+name: Deploy to Production
 
 on:
   push:
@@ -70,7 +70,9 @@ jobs:
     name: Deploy
     needs: build
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: prod
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       
@@ -81,12 +83,19 @@ jobs:
           path: dist
       
       - name: Deploy to Netlify
-        uses: netlify/actions/cli@master
+        id: deploy
+        uses: nwtgck/actions-netlify@v2
+        with:
+          publish-dir: './dist'
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from GitHub Actions"
+          enable-pull-request-comment: true
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        with:
-          args: deploy --prod --dir=dist
       
       - name: Create Sentry release
         uses: getsentry/action-release@v1

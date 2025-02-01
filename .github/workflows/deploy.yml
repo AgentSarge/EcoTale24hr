@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment:
-      name: main
+      name: production
       url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
