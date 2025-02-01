@@ -1,0 +1,100 @@
+version: 1
+
+scans:
+  # OWASP ZAP configuration
+  zap:
+    enabled: true
+    target: ${DEPLOY_URL}
+    rules:
+      - id: 10038 # CSRF
+        threshold: Medium
+      - id: 10020 # Missing X-Frame-Options
+        threshold: High
+      - id: 10021 # X-Content-Type-Options
+        threshold: Medium
+      - id: 10036 # Server Header Info
+        threshold: Low
+
+  # Dependency scanning
+  dependencies:
+    enabled: true
+    fail_on:
+      - High
+      - Critical
+    ignore:
+      - CVE-2023-1234 # False positive in dev dependency
+
+  # Secret scanning
+  secrets:
+    enabled: true
+    patterns:
+      - type: Supabase
+        pattern: '[a-zA-Z0-9]{40,}'
+      - type: API Key
+        pattern: '[A-Za-z0-9_]{32,}'
+    exclude:
+      - '*.test.ts'
+      - '*.spec.ts'
+      - 'test/'
+      - '__tests__/'
+
+  # Container scanning
+  container:
+    enabled: true
+    base_image: node:18-alpine
+    policy:
+      - rule: no_root
+        enforce: true
+      - rule: no_privileged
+        enforce: true
+      - rule: no_latest_tag
+        enforce: true
+
+  # Infrastructure as Code scanning
+  iac:
+    enabled: true
+    providers:
+      - terraform
+      - cloudformation
+    rules:
+      - rule: encrypted_storage
+        enforce: true
+      - rule: secure_tls
+        enforce: true
+      - rule: no_public_access
+        enforce: true
+
+# Reporting configuration
+reporting:
+  format: 
+    - html
+    - json
+    - sarif
+  output_dir: ./security-reports
+  notify:
+    - type: slack
+      webhook: ${SLACK_WEBHOOK}
+    - type: email
+      to: security@ecotale.app
+
+# Compliance requirements
+compliance:
+  standards:
+    - standard: NIST-800-53
+      controls:
+        - RA-5  # Vulnerability Scanning
+        - SA-11 # Developer Security Testing
+        - SI-2  # Flaw Remediation
+    - standard: FedRAMP
+      level: Low
+    - standard: GDPR
+      requirements:
+        - article_32 # Security of processing
+
+# Remediation
+remediation:
+  auto_fix: true
+  approved_sources:
+    - npmjs.org
+    - github.com
+  ignore_dev_dependencies: true 

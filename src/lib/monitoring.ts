@@ -1,19 +1,60 @@
 import * as Sentry from '@sentry/react';
 import LogRocket from 'logrocket';
-import { BrowserTracing } from '@sentry/tracing';
-
-interface MonitoringConfig {
-  sentryDsn: string;
-  logRocketAppId: string;
-  environment: 'development' | 'staging' | 'production';
-  release: string;
-}
+import { User } from '@supabase/supabase-js';
 
 class MonitoringService {
   private static instance: MonitoringService;
-  private initialized = false;
 
-  private constructor() {}
+  private constructor() {
+    // Initialize Sentry
+    if (import.meta.env.VITE_SENTRY_DSN) {
+      Sentry.init({
+        dsn: import.meta.env.VITE_SENTRY_DSN,
+        environment: import.meta.env.MODE,
+        tracesSampleRate: 1.0,
+        integrations: [
+          new Sentry.BrowserTracing(),
+          new Sentry.Replay({
+            maskAllText: true,
+            blockAllMedia: true,
+          }),
+        ],
+      });
+    }
+
+    // Initialize LogRocket
+    if (import.meta.env.VITE_LOGROCKET_APP_ID) {
+      LogRocket.init(import.meta.env.VITE_LOGROCKET_APP_ID, {
+        release: import.meta.env.VITE_APP_VERSION,
+        console: {
+          shouldAggregateConsoleErrors: true,
+        },
+        network: {
+          requestSanitizer: (request) => {
+            // Remove sensitive data from requests
+            if (request.headers.Authorization) {
+              request.headers.Authorization = '[FILTERED]';
+            }
+            return request;
+          },
+          responseSanitizer: (response) => {
+            // Remove sensitive data from responses
+            if (response.body) {
+              try {
+                const data = JSON.parse(response.body);
+                if (data.token || data.password) {
+                  response.body = '[FILTERED]';
+                }
+              } catch (e) {
+                // If response is not JSON, leave it as is
+              }
+            }
+            return response;
+          },
+        },
+      });
+    }
+  }
 
   public static getInstance(): MonitoringService {
     if (!MonitoringService.instance) {
@@ -22,97 +63,43 @@ class MonitoringService {
     return MonitoringService.instance;
   }
 
-  public initialize(config: MonitoringConfig): void {
-    if (this.initialized) {
-      console.warn('Monitoring service already initialized');
-      return;
+  public setUser(user: User | null): void {
+    if (user) {
+      const userData = {
+        id: user.id,
+        email: user.email,
+      };
+
+      Sentry.setUser(userData);
+      LogRocket.identify(user.id, userData);
+    } else {
+      Sentry.setUser(null);
+      LogRocket.identify(null);
     }
-
-    // Initialize LogRocket
-    LogRocket.init(config.logRocketAppId, {
-      release: config.release,
-      console: {
-        shouldAggregateConsoleErrors: true,
-      },
-      network: {
-        requestSanitizer: (request) => {
-          // Sanitize sensitive data from requests
-          if (request.headers.authorization) {
-            request.headers.authorization = '[REDACTED]';
-          }
-          return request;
-        },
-        responseSanitizer: (response) => {
-          // Sanitize sensitive data from responses
-          return response;
-        },
-      },
-    });
-
-    // Initialize Sentry
-    Sentry.init({
-      dsn: config.sentryDsn,
-      environment: config.environment,
-      release: config.release,
-      integrations: [
-        new BrowserTracing({
-          tracePropagationTargets: ['localhost', 'ecotale.app'],
-        }),
-      ],
-      tracesSampleRate: config.environment === 'production' ? 0.1 : 1.0,
-      beforeSend: (event) => {
-        // Sanitize sensitive data before sending to Sentry
-        if (event.request?.headers?.authorization) {
-          event.request.headers.authorization = '[REDACTED]';
-        }
-        return event;
-      },
-    });
-
-    // Link Sentry and LogRocket
-    LogRocket.getSessionURL((sessionURL) => {
-      Sentry.configureScope((scope) => {
-        scope.setExtra('logRocketSession', sessionURL);
-      });
-    });
-
-    this.initialized = true;
   }
 
   public captureException(error: Error, context?: Record<string, any>): void {
-    Sentry.withScope((scope) => {
-      if (context) {
-        Object.entries(context).forEach(([key, value]) => {
-          scope.setExtra(key, value);
-        });
-      }
-      Sentry.captureException(error);
-    });
+    console.error(error);
+    Sentry.captureException(error, { extra: context });
     LogRocket.captureException(error, context);
-  }
-
-  public setUser(user: { id: string; email?: string; name?: string }): void {
-    Sentry.setUser(user);
-    LogRocket.identify(user.id, {
-      name: user.name,
-      email: user.email,
-    });
-  }
-
-  public startPerformanceTransaction(
-    name: string,
-    operation: string
-  ): Sentry.Transaction {
-    const transaction = Sentry.startTransaction({
-      name,
-      op: operation,
-    });
-    return transaction;
   }
 
   public setTag(key: string, value: string): void {
     Sentry.setTag(key, value);
-    LogRocket.track(key, { value });
+    LogRocket.setTag(key, value);
+  }
+
+  public startPerformanceTransaction(name: string, operation: string) {
+    const transaction = Sentry.startTransaction({
+      name,
+      op: operation,
+    });
+
+    return {
+      finish: () => {
+        transaction.finish();
+      },
+    };
   }
 }
 

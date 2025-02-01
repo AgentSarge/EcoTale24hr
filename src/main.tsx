@@ -1,5 +1,6 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
+import * as Sentry from '@sentry/react';
 import App from './App';
 import './index.css';
 import { monitoring } from './lib/monitoring';
@@ -29,7 +30,27 @@ if (import.meta.env.DEV) {
 // Performance monitoring is automatically initialized when imported
 // We can access metrics through performanceMonitor.getMetrics() and performanceMonitor.getResourceMetrics()
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+// Initialize Sentry
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  integrations: [
+    Sentry.browserTracingIntegration(),
+    Sentry.replayIntegration(),
+  ],
+  // Performance Monitoring
+  tracesSampleRate: 1.0,
+  // Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+});
+
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('Root element not found');
+}
+
+const root = createRoot(container);
+root.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
