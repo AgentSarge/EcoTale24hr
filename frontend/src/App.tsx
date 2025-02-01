@@ -12,8 +12,11 @@ import { IndustrySelection } from './components/onboarding/IndustrySelection';
 import { SustainabilityGoals } from './components/dashboard/SustainabilityGoals';
 import { MaterialJourney } from './components/supply-chain/MaterialJourney';
 import { SupplierComparison } from './components/supply-chain/SupplierComparison';
+import { Login } from './components/auth/Login';
+import { Register } from './components/auth/Register';
+import { NotFound } from './components/NotFound';
 
-const ErrorFallback = ({ error }: { error: Error }) => (
+const ErrorFallback = ({ error, resetError }: { error: Error; resetError: () => void }) => (
   <div className="flex min-h-screen items-center justify-center bg-gray-50">
     <div className="rounded-lg bg-white p-8 shadow-lg">
       <h1 className="mb-4 text-2xl font-bold text-red-600">Something went wrong</h1>
@@ -21,7 +24,7 @@ const ErrorFallback = ({ error }: { error: Error }) => (
         {error.message}
       </pre>
       <button
-        onClick={() => window.location.reload()}
+        onClick={resetError}
         className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
       >
         Try again
@@ -59,6 +62,8 @@ const AppRoutes = () => (
           path="/"
           element={<Navigate to="/login" replace />}
         />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         {/* Protected Routes */}
         <Route
@@ -122,7 +127,7 @@ const AppRoutes = () => (
         />
 
         {/* Error Routes */}
-        <Route path="*" element={<div>Page not found</div>} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </main>
   </div>
@@ -131,7 +136,9 @@ const AppRoutes = () => (
 const App: React.FC = () => {
   return (
     <Sentry.ErrorBoundary
-      fallback={(errorData) => <ErrorFallback error={errorData.error as Error} />}
+      fallback={({ error, resetError }) => (
+        <ErrorFallback error={error} resetError={resetError} />
+      )}
     >
       <StoreProvider>
         <Router>

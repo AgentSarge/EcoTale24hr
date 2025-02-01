@@ -4,8 +4,7 @@ import * as Sentry from '@sentry/react'
 import App from './App'
 import './index.css'
 import { monitoring } from './lib/monitoring'
-import { SecurityHeaders, createSecurityHeaders } from './middleware/security-headers'
-import { StoreProvider } from './providers/StoreProvider'
+import { createSecurityHeaders } from './middleware/security-headers'
 
 // Initialize monitoring service
 monitoring.initialize({
@@ -16,15 +15,15 @@ monitoring.initialize({
 })
 
 // Apply security headers
-const securityHeaders = createSecurityHeaders({
+const headers = createSecurityHeaders({
   supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
   isDevelopment: import.meta.env.DEV,
 })
-securityHeaders.applyHeaders()
+headers.applyHeaders()
 
 // Validate headers in development
 if (import.meta.env.DEV) {
-  securityHeaders.validateHeaders()
+  headers.validateHeaders()
 }
 
 // Initialize Sentry
@@ -58,8 +57,6 @@ if (!container) {
 const root = createRoot(container)
 root.render(
   <React.StrictMode>
-    <StoreProvider>
-      <App />
-    </StoreProvider>
+    <App />
   </React.StrictMode>,
 )
